@@ -692,17 +692,11 @@ class SkeeBallGame(MicroGame):
         self.ball_vx = 0.0
         self.ball_vy = 0.0
         self.aim_angle = 0.5
-        self.scored = False
-        self.score_ring = -1
         self.t_since_launch = 0.0
-        # Ring centers & radii (from top of screen)
-        self.rings = [
-            {"cx": VIRT_W // 2, "cy": 80, "r": 6, "pts": 50, "color": WII_GOLD},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 14, "pts": 30, "color": ORANGE},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 22, "pts": 20, "color": WII_BLUE},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 30, "pts": 10, "color": WII_LIGHT_BLUE},
-        ]
-        self.particles = []
+        # Single target — hit it to win, miss to lose
+        self.target_cx = VIRT_W // 2
+        self.target_cy = 80
+        self.target_r = max(8, int(14 * speed_mult))
         self.hint = f"POT {self.pot}"
 
     def update(self, snap, dt):
@@ -713,7 +707,6 @@ class SkeeBallGame(MicroGame):
                 cx = VIRT_W // 2
                 self.ball_x = float(cx)
                 self.ball_y = float(VIRT_H - 60)
-                # Aim maps pot to left-right deviation
                 spread = (self.aim_angle - 0.5) * 60
                 self.ball_vx = spread
                 self.ball_vy = -280.0
@@ -724,20 +717,11 @@ class SkeeBallGame(MicroGame):
         self.ball_y += self.ball_vy * dt
         self.ball_vy += 80 * dt  # slight gravity arc
 
-        # Check ring hits from smallest (best) to largest
-        for i, ring in enumerate(self.rings):
-            dist = math.sqrt((self.ball_x - ring["cx"]) ** 2 +
-                             (self.ball_y - ring["cy"]) ** 2)
-            if dist < ring["r"] and abs(self.ball_y - ring["cy"]) < ring["r"] * 0.6:
-                self.scored = True
-                self.score_ring = i
-                for _ in range(12):
-                    self.particles.append([
-                        self.ball_x + random.randint(-5, 5),
-                        self.ball_y + random.randint(-5, 5),
-                        random.uniform(-40, 40), random.uniform(-60, -10),
-                        random.randint(6, 12), ring["color"]])
-                return True
+        # Check target hit
+        dist = math.sqrt((self.ball_x - self.target_cx) ** 2 +
+                         (self.ball_y - self.target_cy) ** 2)
+        if dist < self.target_r + 4:
+            return True
 
         if self.ball_y < 40 or self.t_since_launch > 2.5:
             return False
@@ -760,13 +744,11 @@ class SkeeBallGame(MicroGame):
             pygame.draw.line(screen, (160, 140, 120),
                              (cx - 30, ly), (cx + 30, ly), 1)
 
-        # Scoring rings (draw largest first)
-        for ring in reversed(self.rings):
-            pygame.draw.circle(screen, ring["color"],
-                               (ring["cx"], ring["cy"]), ring["r"], 2)
-            pts = fonts["small"].render(str(ring["pts"]), True, ring["color"])
-            screen.blit(pts, (ring["cx"] - pts.get_width() // 2,
-                              ring["cy"] - pts.get_height() // 2))
+        # Target (bullseye)
+        tx, ty, tr = self.target_cx, self.target_cy, self.target_r
+        pygame.draw.circle(screen, WII_GOLD, (tx, ty), tr)
+        pygame.draw.circle(screen, WHITE, (tx, ty), max(2, tr // 2))
+        pygame.draw.circle(screen, WII_BORDER, (tx, ty), tr, 2)
 
         # Aim indicator
         if not self.launched:
@@ -785,18 +767,6 @@ class SkeeBallGame(MicroGame):
                 pygame.draw.circle(screen, WHITE, (bx, by), 5)
                 pygame.draw.circle(screen, WII_BORDER, (bx, by), 5, 1)
 
-        # Particles
-        new_p = []
-        for p in self.particles:
-            p[0] += p[2] * dt if hasattr(self, 't_since_launch') else p[2] * 0.03
-            p[1] += p[3] * 0.03
-            p[4] -= 1
-            if p[4] > 0:
-                pygame.draw.rect(screen, p[5],
-                                 (int(p[0]), int(p[1]), 2, 2))
-                new_p.append(p)
-        self.particles = new_p
-
         draw_wii_badge(screen, cx, VIRT_H - 30, f"POT {self.pot}",
                        fonts["small"])
 
@@ -804,20 +774,15 @@ class SkeeBallGame(MicroGame):
         draw_wii_bg(screen, top=(200, 180, 160), bottom=(240, 230, 220))
         cx, cy = VIRT_W // 2, VIRT_H // 2
         if won:
-            ring = self.rings[self.score_ring]
-            pts_txt = f"+{ring['pts']}!"
-            # Expanding rings
             for i in range(4):
                 r = int(t * 120 + i * 15) % 80
                 if 0 < r < 80:
                     a = max(0, 1.0 - r / 80)
-                    c = (int(ring["color"][0] * a), int(ring["color"][1] * a),
-                         int(ring["color"][2] * a))
+                    c = (int(WII_GOLD[0] * a), int(WII_GOLD[1] * a),
+                         int(WII_GOLD[2] * a))
                     pygame.draw.circle(screen, c, (cx, cy), r, 2)
-            txt = fonts["giant"].render(pts_txt, True, ring["color"])
-            screen.blit(txt, (cx - txt.get_width() // 2, cy - 20))
-            sub = fonts["med"].render("NICE THROW!", True, WII_SUCCESS)
-            screen.blit(sub, (cx - sub.get_width() // 2, cy + 20))
+            txt = fonts["huge"].render("NICE!", True, WII_SUCCESS)
+            screen.blit(txt, (cx - txt.get_width() // 2, cy - 15))
         else:
             txt = fonts["huge"].render("GUTTER!", True, WII_DANGER)
             screen.blit(txt, (cx - txt.get_width() // 2, cy - 15))
@@ -836,7 +801,7 @@ class CraneGame(MicroGame):
         self.claw_target_x = float(VIRT_W // 2)
         self.dropping = False
         self.claw_y = 65.0
-        self.drop_speed = 220.0
+        self.drop_speed = 400.0
         self.rising = False
         self.grabbed = False
         self.prize_grabbed_idx = -1
@@ -1081,6 +1046,14 @@ class PinballGame(MicroGame):
             if self.ball_x > VIRT_W - 30:
                 self.ball_x = VIRT_W - 30
                 self.ball_vx = -abs(self.ball_vx) * 0.6
+        # Bottom walls below gutters — keep ball on the flippers
+        if self.ball_y >= gutter_bot:
+            if self.ball_x < 15:
+                self.ball_x = 15
+                self.ball_vx = abs(self.ball_vx) * 0.8
+            if self.ball_x > VIRT_W - 15:
+                self.ball_x = VIRT_W - 15
+                self.ball_vx = -abs(self.ball_vx) * 0.8
 
         # Ball lost
         if self.ball_y > VIRT_H - 30:
@@ -1112,7 +1085,7 @@ class PinballGame(MicroGame):
 
         # Flippers — V shape at rest, swing up when pressed
         l_angle = 0.4 - self.left_flip * 0.6
-        r_angle = -0.4 + self.right_flip * 0.6
+        r_angle = 0.4 - self.right_flip * 0.6
         # Left
         lx1, ly1 = cx - 35, flip_y
         lx2 = lx1 + int(math.cos(l_angle) * 30)
@@ -1131,6 +1104,11 @@ class PinballGame(MicroGame):
                          (15, gutter_bot), 2)
         pygame.draw.line(screen, (60, 70, 100), (VIRT_W - 30, gutter_top),
                          (VIRT_W - 15, gutter_bot), 2)
+        # Bottom side walls (extend to ball-lost zone)
+        pygame.draw.line(screen, (60, 70, 100), (15, gutter_bot),
+                         (15, VIRT_H - 30), 2)
+        pygame.draw.line(screen, (60, 70, 100), (VIRT_W - 15, gutter_bot),
+                         (VIRT_W - 15, VIRT_H - 30), 2)
 
         # Gutter
         pygame.draw.line(screen, WII_DANGER, (cx - 25, VIRT_H - 45),
@@ -1183,6 +1161,7 @@ class FryEggGame(MicroGame):
         self.flip_window_lo = 1.5
         self.flip_window_hi = 3.0
         self.steam = []
+        self.fell_off = False
 
     def update(self, snap, dt):
         # Tilt moves egg
@@ -1191,11 +1170,13 @@ class FryEggGame(MicroGame):
         self.egg_x = max(40, min(VIRT_W - 40, self.egg_x))
         self.egg_y = max(80, min(VIRT_H - 80, self.egg_y))
 
-        # Egg fell off the pan
+        # Egg fell off the pan (elliptical check matching pan shape)
         pan_cx, pan_cy = VIRT_W // 2, VIRT_H // 2
-        dist_from_pan = math.sqrt((self.egg_x - pan_cx) ** 2 +
-                                  (self.egg_y - pan_cy) ** 2)
-        if dist_from_pan > 50:
+        pan_rx, pan_ry = 50, 36  # half-widths of inner pan ellipse
+        dx = (self.egg_x - pan_cx) / pan_rx
+        dy = (self.egg_y - pan_cy) / pan_ry
+        if dx * dx + dy * dy > 1:
+            self.fell_off = True
             return False
 
         self.cook_time += dt
@@ -1302,152 +1283,13 @@ class FryEggGame(MicroGame):
             txt = fonts["huge"].render("TASTY!", True, WII_SUCCESS)
             screen.blit(txt, (cx - txt.get_width() // 2, cy + 40))
         else:
-            if self.cook_time < self.flip_window_lo:
+            if self.fell_off:
+                msg = "DROPPED!"
+            elif self.cook_time < self.flip_window_lo:
                 msg = "TOO RAW!"
             else:
                 msg = "BURNT!"
             txt = fonts["huge"].render(msg, True, WII_DANGER)
-            screen.blit(txt, (cx - txt.get_width() // 2, cy - 15))
-
-
-# ── 5. BARBERSHOP ─────────────────────────────────────────
-class BarbershopGame(MicroGame):
-    name = "SHAVE!"
-    hint = "POT1+POT2"
-    instruction = "Shave the stubble!"
-    base_duration = 5.5
-    game_type = "action"
-
-    def reset(self, snap=None, speed_mult=1.0):
-        self.razor_x = float(VIRT_W // 2)
-        self.razor_y = float(VIRT_H // 2)
-        # Face center
-        self.face_cx = VIRT_W // 2
-        self.face_cy = VIRT_H // 2 - 20
-        # Stubble patches relative to face center
-        self.stubble = []
-        for _ in range(random.randint(6, 10)):
-            angle = random.uniform(-1.0, 1.0)
-            dist = random.uniform(12, 35)
-            sx = int(math.cos(angle) * dist)
-            sy = int(math.sin(angle) * dist + 10)
-            self.stubble.append({"dx": sx, "dy": sy, "shaved": False})
-        # Moles (avoid these)
-        self.moles = []
-        for _ in range(2):
-            angle = random.uniform(-0.8, 0.8)
-            dist = random.uniform(15, 30)
-            self.moles.append({
-                "dx": int(math.cos(angle) * dist),
-                "dy": int(math.sin(angle) * dist + 8)})
-        self.shaved_count = 0
-        self.total_stubble = len(self.stubble)
-        self.nicked = False
-
-    def update(self, snap, dt):
-        self.razor_x = 20 + (snap["pot1"] / 4095.0) * (VIRT_W - 40)
-        self.razor_y = 70 + (snap["pot2"] / 4095.0) * (VIRT_H - 140)
-
-        rx, ry = self.razor_x, self.razor_y
-        # Check mole hit
-        for m in self.moles:
-            mx = self.face_cx + m["dx"]
-            my = self.face_cy + m["dy"]
-            if abs(rx - mx) < 6 and abs(ry - my) < 6:
-                self.nicked = True
-                return False
-
-        # Check stubble shave
-        for s in self.stubble:
-            if s["shaved"]:
-                continue
-            sx = self.face_cx + s["dx"]
-            sy = self.face_cy + s["dy"]
-            if abs(rx - sx) < 8 and abs(ry - sy) < 8:
-                s["shaved"] = True
-                self.shaved_count += 1
-                if self.shaved_count >= self.total_stubble:
-                    return True
-        return None
-
-    def draw(self, screen, snap, tl, tt, fonts):
-        draw_wii_bg(screen, top=(245, 240, 235), bottom=(230, 225, 218))
-        draw_wii_header(screen, "SHAVE!", fonts["big"])
-        fcx, fcy = self.face_cx, self.face_cy
-
-        # Big cartoon face
-        pygame.draw.circle(screen, (255, 220, 185), (fcx, fcy), 40)
-        pygame.draw.circle(screen, (240, 205, 170), (fcx, fcy), 40, 2)
-        # Eyes
-        pygame.draw.circle(screen, WHITE, (fcx - 12, fcy - 10), 6)
-        pygame.draw.circle(screen, WHITE, (fcx + 12, fcy - 10), 6)
-        pygame.draw.circle(screen, (40, 42, 48), (fcx - 12, fcy - 10), 3)
-        pygame.draw.circle(screen, (40, 42, 48), (fcx + 12, fcy - 10), 3)
-        # Nose
-        pygame.draw.circle(screen, (235, 195, 160), (fcx, fcy + 2), 4)
-        # Mouth
-        pygame.draw.arc(screen, (200, 120, 100),
-                        (fcx - 8, fcy + 12, 16, 8), 3.14, 6.28, 1)
-
-        # Stubble patches
-        for s in self.stubble:
-            sx = fcx + s["dx"]
-            sy = fcy + s["dy"]
-            if not s["shaved"]:
-                for i in range(5):
-                    dx = random.Random(hash((s["dx"], s["dy"], i))).randint(-3, 3)
-                    dy = random.Random(hash((s["dx"], s["dy"], i + 99))).randint(-3, 3)
-                    pygame.draw.line(screen, (80, 70, 60),
-                                     (sx + dx, sy + dy),
-                                     (sx + dx, sy + dy + 2), 1)
-
-        # Moles (red dots with X marks)
-        for m in self.moles:
-            mx = fcx + m["dx"]
-            my = fcy + m["dy"]
-            pygame.draw.circle(screen, (120, 80, 60), (mx, my), 3)
-            pygame.draw.line(screen, WII_DANGER, (mx - 5, my - 5),
-                             (mx + 5, my + 5), 1)
-            pygame.draw.line(screen, WII_DANGER, (mx + 5, my - 5),
-                             (mx - 5, my + 5), 1)
-
-        # Razor cursor
-        rx, ry = int(self.razor_x), int(self.razor_y)
-        pygame.draw.rect(screen, (190, 195, 200), (rx - 2, ry - 8, 4, 16),
-                         border_radius=1)
-        pygame.draw.rect(screen, (160, 165, 175), (rx - 5, ry - 8, 10, 4),
-                         border_radius=1)
-
-        # Counter
-        draw_wii_badge(screen, VIRT_W // 2, VIRT_H - 30,
-                       f"{self.shaved_count}/{self.total_stubble}",
-                       fonts["med"],
-                       active=(self.shaved_count >= self.total_stubble))
-
-    def animate_result(self, screen, won, t, fonts):
-        draw_wii_bg(screen, top=(245, 240, 235), bottom=(230, 225, 218))
-        cx, cy = VIRT_W // 2, VIRT_H // 2
-        if won:
-            # Clean shaven face with sparkles
-            pygame.draw.circle(screen, (255, 220, 185), (cx, cy - 10), 40)
-            pygame.draw.circle(screen, WHITE, (cx - 12, cy - 20), 6)
-            pygame.draw.circle(screen, WHITE, (cx + 12, cy - 20), 6)
-            pygame.draw.circle(screen, (40, 42, 48), (cx - 12, cy - 20), 3)
-            pygame.draw.circle(screen, (40, 42, 48), (cx + 12, cy - 20), 3)
-            # Big smile
-            pygame.draw.arc(screen, (200, 120, 100),
-                            (cx - 10, cy + 2, 20, 10), 3.14, 6.28, 2)
-            for i in range(6):
-                a = t * 5 + i * math.pi / 3
-                d = t * 40
-                sx = cx + int(math.cos(a) * d)
-                sy = cy + int(math.sin(a) * d)
-                if 0 < sx < VIRT_W and 20 < sy < VIRT_H:
-                    pygame.draw.rect(screen, WII_LIGHT_BLUE, (sx, sy, 2, 2))
-            txt = fonts["huge"].render("SMOOTH!", True, WII_SUCCESS)
-            screen.blit(txt, (cx - txt.get_width() // 2, cy + 45))
-        else:
-            txt = fonts["huge"].render("OUCH!", True, WII_DANGER)
             screen.blit(txt, (cx - txt.get_width() // 2, cy - 15))
 
 
@@ -1480,7 +1322,7 @@ class SlingshotGame(MicroGame):
             if snap["btn1"]:
                 self.fired = True
                 angle = -0.2 - self.aim * 1.2  # upward arc
-                force = 250 + self.power * 350
+                force = 400 + self.power * 400
                 self.proj_x = 30.0
                 self.proj_y = float(VIRT_H - 80)
                 self.proj_vx = math.cos(angle) * force
@@ -1538,13 +1380,15 @@ class SlingshotGame(MicroGame):
                              (34, sy_base - 40), (27 - pull, sy_base - 30), 2)
             # Aiming arc (dotted)
             angle = -0.2 - self.aim * 1.2
-            force = 250 + self.power * 350
+            force = 400 + self.power * 400
             for i in range(1, 15):
                 ft = i * 0.06
                 ax = 30 + math.cos(angle) * force * ft
                 ay = (VIRT_H - 80) + math.sin(angle) * force * ft + 90 * ft * ft
                 if 0 < ax < VIRT_W and 0 < ay < VIRT_H:
-                    pygame.draw.rect(screen, WHITE,
+                    pygame.draw.rect(screen, BLACK,
+                                     (int(ax), int(ay), 3, 3))
+                    pygame.draw.rect(screen, WII_DANGER,
                                      (int(ax), int(ay), 2, 2))
             # Rock in sling
             pygame.draw.circle(screen, (120, 110, 100),
@@ -3749,6 +3593,7 @@ class GameEngine:
         games = ALL_GAMES
         item_h = 24
         cx = VIRT_W // 2
+        back_rect = pygame.Rect(2, 2, 36, 16)
 
         def level_to_mult(lv):
             return max(0.4, 1.0 - (lv - 1) * 0.05)
@@ -3791,6 +3636,8 @@ class GameEngine:
                 return None
 
             for tx, ty in touches:
+                if back_rect.collidepoint(tx, ty):
+                    return None
                 list_y_start = 88
                 for i in range(len(games)):
                     iy = list_y_start + i * item_h - int(scroll_y)
@@ -3844,6 +3691,14 @@ class GameEngine:
                 draw_clean_text(self.screen, game.hint, self.fonts["small"],
                                 hc, (VIRT_W - 18 - hw, iy + item_h // 2),
                                 center=False)
+
+            # Back button
+            draw_rounded_rect(self.screen, DARK_GREY,
+                              (back_rect.x, back_rect.y,
+                               back_rect.w, back_rect.h), 4)
+            draw_clean_text(self.screen, "< Back", self.fonts["small"],
+                            WHITE, (back_rect.x + 18, back_rect.y + 8),
+                            center=True)
 
             draw_clean_text(self.screen, "B1: Play    B2: Back",
                             self.fonts["small"], WII_TEXT_LIGHT,
