@@ -3866,10 +3866,10 @@ class GameEngine:
 
         while True:
             snap = self.state.snapshot()
-            _prev_b2 = snap["btn2_presses"]
             game.reset(snap, speed_mult)
 
             self.show_instruction_screen(game)
+            _prev_b2 = self.state.snapshot()["btn2_presses"]
 
             if game.wave_based:
                 duration = game.base_duration
@@ -3960,6 +3960,7 @@ class GameEngine:
                 if snap["btn2_presses"] != _prev_b2:
                     self.set_led("b", False)
                     return
+                _prev_b2 = snap["btn2_presses"]
                 for tx, ty in self.get_touches():
                     if back_rect.collidepoint(tx, ty):
                         self.set_led("b", False)
