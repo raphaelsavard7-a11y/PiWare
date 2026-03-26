@@ -646,6 +646,7 @@ def is_highscore(score):
 class MicroGame(abc.ABC):
     name = ""
     hint = ""
+    instruction = ""
     base_duration = 4.0
     game_type = "action"
     wave_based = False
@@ -679,6 +680,7 @@ class MicroGame(abc.ABC):
 class SkeeBallGame(MicroGame):
     name = "SKEE-BALL!"
     hint = "POT + BTN"
+    instruction = "Aim & throw!"
     base_duration = 4.5
     game_type = "action"
 
@@ -825,6 +827,7 @@ class SkeeBallGame(MicroGame):
 class CraneGame(MicroGame):
     name = "CRANE!"
     hint = "POT1+B1"
+    instruction = "Grab a prize!"
     base_duration = 6.0
     game_type = "action"
 
@@ -987,6 +990,7 @@ class CraneGame(MicroGame):
 class PinballGame(MicroGame):
     name = "PINBALL!"
     hint = "B1+B2 FLIP"
+    instruction = "Hit the bumpers!"
     base_duration = 8.0
     game_type = "action"
     wave_based = True
@@ -1147,6 +1151,7 @@ class PinballGame(MicroGame):
 class FryEggGame(MicroGame):
     name = "FRY IT!"
     hint = "TILT+BTN"
+    instruction = "Flip at the right time!"
     base_duration = 5.0
     game_type = "action"
 
@@ -1283,6 +1288,7 @@ class FryEggGame(MicroGame):
 class BarbershopGame(MicroGame):
     name = "SHAVE!"
     hint = "POT1+POT2"
+    instruction = "Shave the stubble!"
     base_duration = 5.5
     game_type = "action"
 
@@ -1423,6 +1429,7 @@ class BarbershopGame(MicroGame):
 class SlingshotGame(MicroGame):
     name = "SLINGSHOT!"
     hint = "POT1+POT2+B1"
+    instruction = "Hit the target!"
     base_duration = 5.0
     game_type = "action"
 
@@ -1549,6 +1556,7 @@ class SlingshotGame(MicroGame):
 class DJScratchGame(MicroGame):
     name = "SCRATCH!"
     hint = "POT1"
+    instruction = "Follow the pattern!"
     base_duration = 5.0
     game_type = "action"
 
@@ -1688,6 +1696,7 @@ class DJScratchGame(MicroGame):
 class SneezeGame(MicroGame):
     name = "DON'T SNEEZE!"
     hint = "TILT"
+    instruction = "Hold still!"
     base_duration = 3.5
     game_type = "survive"
 
@@ -1792,6 +1801,7 @@ class SneezeGame(MicroGame):
 class SwordFightGame(MicroGame):
     name = "DUEL!"
     hint = "B1=ATK B2=BLK"
+    instruction = "Attack & block!"
     base_duration = 12.0
     game_type = "action"
     wave_based = True
@@ -1953,6 +1963,7 @@ class SwordFightGame(MicroGame):
 class BugSquashGame(MicroGame):
     name = "SQUASH!"
     hint = "POT1+POT2+B1"
+    instruction = "Squash the bugs!"
     base_duration = 6.0
     game_type = "action"
     wave_based = True
@@ -2111,6 +2122,7 @@ class BugSquashGame(MicroGame):
 class TightropeGame(MicroGame):
     name = "TIGHTROPE!"
     hint = "TILT"
+    instruction = "Keep your balance!"
     base_duration = 4.5
     game_type = "survive"
 
@@ -2234,6 +2246,7 @@ class TightropeGame(MicroGame):
 class SafeCrackGame(MicroGame):
     name = "CRACK IT!"
     hint = "POT1"
+    instruction = "Find the combo!"
     base_duration = 7.0
     game_type = "action"
 
@@ -2372,6 +2385,7 @@ class SafeCrackGame(MicroGame):
 class PopcornGame(MicroGame):
     name = "POPCORN!"
     hint = "TILT"
+    instruction = "Shake it!"
     base_duration = 4.5
     game_type = "action"
 
@@ -2476,6 +2490,7 @@ class PopcornGame(MicroGame):
 class WindsurfGame(MicroGame):
     name = "WINDSURF!"
     hint = "POT1+TILT"
+    instruction = "Match the wind!"
     base_duration = 6.0
     game_type = "action"
 
@@ -2574,6 +2589,7 @@ class WindsurfGame(MicroGame):
 class PickpocketGame(MicroGame):
     name = "STEAL!"
     hint = "BTN1"
+    instruction = "Wait for it...!"
     base_duration = 10.0
     game_type = "action"
     wave_based = True
@@ -2674,6 +2690,7 @@ class PickpocketGame(MicroGame):
 class StackGame(MicroGame):
     name = "STACK!"
     hint = "BTN1"
+    instruction = "Stack the blocks!"
     base_duration = 10.0
     game_type = "action"
     wave_based = True
@@ -2797,6 +2814,7 @@ class StackGame(MicroGame):
 class SpaceInvaderGame(MicroGame):
     name = "INVADERS!"
     hint = "POT1+BTN1"
+    instruction = "Shoot them down!"
     base_duration = 8.0
     game_type = "action"
     wave_based = True
@@ -2943,6 +2961,7 @@ class SpaceInvaderGame(MicroGame):
 class BreakoutGame(MicroGame):
     name = "BREAKOUT!"
     hint = "POT1"
+    instruction = "Break the bricks!"
     base_duration = 10.0
     game_type = "action"
     wave_based = True
@@ -3244,6 +3263,52 @@ class GameEngine:
                     st = self.fonts["med"].render(subtitle, True, WII_TEXT_LIGHT)
                     self.screen.blit(st, (cx - st.get_width() // 2,
                                           cy + txt.get_height() // 2 - 4))
+            self.flip()
+            self.clock.tick(FPS)
+
+    def show_instruction_screen(self, game, duration=1.0):
+        """WarioWare-style instruction splash shown before each microgame.
+
+        Displays a scale-in panel with three tiers of text:
+        - game name (medium, top)  — identifies the game
+        - instruction (large, center) — action command; falls back to game.name
+        - hint (small, bottom) — control reminder
+
+        Args:
+            game: a MicroGame instance with name, instruction and hint attributes.
+            duration: how long the screen is shown in seconds (default 1.0).
+        """
+        instruction = game.instruction or game.name
+        start = time.time()
+        while time.time() - start < duration:
+            if self.check_quit():
+                return
+            t = time.time() - start
+            draw_wii_bg(self.screen)
+            cx, cy = VIRT_W // 2, VIRT_H // 2
+            scale = min(t / 0.15, 1.0)
+            panel_w = int(220 * scale)
+            panel_h = int(100 * scale)
+            if panel_w > 20 and panel_h > 10:
+                draw_wii_panel(self.screen,
+                               (cx - panel_w // 2, cy - panel_h // 2,
+                                panel_w, panel_h),
+                               border_color=WII_GOLD)
+            if scale > 0.5:
+                name_txt = self.fonts["med"].render(game.name, True, WII_TEXT_LIGHT)
+                self.screen.blit(name_txt,
+                                 (cx - name_txt.get_width() // 2,
+                                  cy - panel_h // 2 + 6))
+                instr_txt = self.fonts["huge"].render(instruction, True, YELLOW)
+                self.screen.blit(instr_txt,
+                                 (cx - instr_txt.get_width() // 2,
+                                  cy - instr_txt.get_height() // 2))
+                if game.hint:
+                    hint_txt = self.fonts["small"].render(game.hint, True,
+                                                          WII_TEXT_LIGHT)
+                    self.screen.blit(hint_txt,
+                                     (cx - hint_txt.get_width() // 2,
+                                      cy + panel_h // 2 - hint_txt.get_height() - 4))
             self.flip()
             self.clock.tick(FPS)
 
@@ -3775,8 +3840,7 @@ class GameEngine:
             snap = self.state.snapshot()
             game.reset(snap, speed_mult)
 
-            self.flash_screen(game.name, YELLOW, game.bg_color, 0.6,
-                              subtitle=game.hint)
+            self.show_instruction_screen(game)
 
             if game.wave_based:
                 duration = game.base_duration
@@ -3963,9 +4027,8 @@ class GameEngine:
                 self.flash_screen(f"SPEED UP!", ORANGE, BG, 0.6,
                                   subtitle=f"Level {speed_level}")
 
-            # Show game name
-            self.flash_screen(game.name, YELLOW, game.bg_color, 0.6,
-                              subtitle=game.hint)
+            # Show instruction screen
+            self.show_instruction_screen(game)
 
             # Run game
             if game.wave_based:
