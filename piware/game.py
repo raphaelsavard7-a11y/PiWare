@@ -697,10 +697,10 @@ class SkeeBallGame(MicroGame):
         self.t_since_launch = 0.0
         # Ring centers & radii (from top of screen)
         self.rings = [
-            {"cx": VIRT_W // 2, "cy": 80, "r": 8, "pts": 50, "color": WII_GOLD},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 18, "pts": 30, "color": ORANGE},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 30, "pts": 20, "color": WII_BLUE},
-            {"cx": VIRT_W // 2, "cy": 80, "r": 44, "pts": 10, "color": WII_LIGHT_BLUE},
+            {"cx": VIRT_W // 2, "cy": 80, "r": 6, "pts": 50, "color": WII_GOLD},
+            {"cx": VIRT_W // 2, "cy": 80, "r": 14, "pts": 30, "color": ORANGE},
+            {"cx": VIRT_W // 2, "cy": 80, "r": 22, "pts": 20, "color": WII_BLUE},
+            {"cx": VIRT_W // 2, "cy": 80, "r": 30, "pts": 10, "color": WII_LIGHT_BLUE},
         ]
         self.particles = []
         self.hint = f"POT {self.pot}"
@@ -728,7 +728,7 @@ class SkeeBallGame(MicroGame):
         for i, ring in enumerate(self.rings):
             dist = math.sqrt((self.ball_x - ring["cx"]) ** 2 +
                              (self.ball_y - ring["cy"]) ** 2)
-            if dist < ring["r"] and self.ball_y < ring["cy"] + ring["r"]:
+            if dist < ring["r"] and abs(self.ball_y - ring["cy"]) < ring["r"] * 0.6:
                 self.scored = True
                 self.score_ring = i
                 for _ in range(12):
@@ -836,7 +836,7 @@ class CraneGame(MicroGame):
         self.claw_target_x = float(VIRT_W // 2)
         self.dropping = False
         self.claw_y = 65.0
-        self.drop_speed = 120.0
+        self.drop_speed = 220.0
         self.rising = False
         self.grabbed = False
         self.prize_grabbed_idx = -1
@@ -882,7 +882,7 @@ class CraneGame(MicroGame):
             return None
 
         if self.rising:
-            self.claw_y -= self.drop_speed * 0.8 * dt
+            self.claw_y -= self.drop_speed * dt
             if self.claw_y <= 65:
                 self.claw_y = 65
                 return self.grabbed
@@ -1058,18 +1058,29 @@ class PinballGame(MicroGame):
 
         # Flipper zones
         flip_y = VIRT_H - 75
-        # Left flipper
+        # Left flipper — wider zone reaching to wall
         if (self.left_flip > 0.5 and
-                abs(self.ball_y - flip_y) < 8 and
-                VIRT_W // 2 - 50 < self.ball_x < VIRT_W // 2 - 5):
+                abs(self.ball_y - flip_y) < 10 and
+                15 < self.ball_x < VIRT_W // 2 - 5):
             self.ball_vy = -180
             self.ball_vx = random.uniform(-30, 50)
-        # Right flipper
+        # Right flipper — wider zone reaching to wall
         if (self.right_flip > 0.5 and
-                abs(self.ball_y - flip_y) < 8 and
-                VIRT_W // 2 + 5 < self.ball_x < VIRT_W // 2 + 50):
+                abs(self.ball_y - flip_y) < 10 and
+                VIRT_W // 2 + 5 < self.ball_x < VIRT_W - 15):
             self.ball_vy = -180
             self.ball_vx = random.uniform(-50, 30)
+
+        # Side gutters — funnel ball toward flippers
+        gutter_top = VIRT_H - 130
+        gutter_bot = flip_y + 5
+        if self.ball_y > gutter_top and self.ball_y < gutter_bot:
+            if self.ball_x < 30:
+                self.ball_x = 30
+                self.ball_vx = abs(self.ball_vx) * 0.6
+            if self.ball_x > VIRT_W - 30:
+                self.ball_x = VIRT_W - 30
+                self.ball_vx = -abs(self.ball_vx) * 0.6
 
         # Ball lost
         if self.ball_y > VIRT_H - 30:
@@ -1099,9 +1110,9 @@ class PinballGame(MicroGame):
                 pygame.draw.circle(screen, WHITE, (b["x"], b["y"]),
                                    b["r"] + 3, 1)
 
-        # Flippers
-        l_angle = -0.4 + self.left_flip * 0.6
-        r_angle = 0.4 - self.right_flip * 0.6
+        # Flippers — V shape at rest, swing up when pressed
+        l_angle = 0.4 - self.left_flip * 0.6
+        r_angle = -0.4 + self.right_flip * 0.6
         # Left
         lx1, ly1 = cx - 35, flip_y
         lx2 = lx1 + int(math.cos(l_angle) * 30)
@@ -1112,6 +1123,14 @@ class PinballGame(MicroGame):
         rx2 = rx1 + int(math.cos(math.pi - r_angle) * 30)
         ry2 = ry1 + int(math.sin(math.pi - r_angle) * 30)
         pygame.draw.line(screen, WII_LIGHT_BLUE, (rx1, ry1), (rx2, ry2), 4)
+
+        # Side gutter walls
+        gutter_top = VIRT_H - 130
+        gutter_bot = flip_y + 5
+        pygame.draw.line(screen, (60, 70, 100), (30, gutter_top),
+                         (15, gutter_bot), 2)
+        pygame.draw.line(screen, (60, 70, 100), (VIRT_W - 30, gutter_top),
+                         (VIRT_W - 15, gutter_bot), 2)
 
         # Gutter
         pygame.draw.line(screen, WII_DANGER, (cx - 25, VIRT_H - 45),
@@ -1171,6 +1190,13 @@ class FryEggGame(MicroGame):
         self.egg_y += snap["acY"] * 40 * dt
         self.egg_x = max(40, min(VIRT_W - 40, self.egg_x))
         self.egg_y = max(80, min(VIRT_H - 80, self.egg_y))
+
+        # Egg fell off the pan
+        pan_cx, pan_cy = VIRT_W // 2, VIRT_H // 2
+        dist_from_pan = math.sqrt((self.egg_x - pan_cx) ** 2 +
+                                  (self.egg_y - pan_cy) ** 2)
+        if dist_from_pan > 50:
+            return False
 
         self.cook_time += dt
 
@@ -1454,7 +1480,7 @@ class SlingshotGame(MicroGame):
             if snap["btn1"]:
                 self.fired = True
                 angle = -0.2 - self.aim * 1.2  # upward arc
-                force = 150 + self.power * 250
+                force = 250 + self.power * 350
                 self.proj_x = 30.0
                 self.proj_y = float(VIRT_H - 80)
                 self.proj_vx = math.cos(angle) * force
@@ -1512,13 +1538,13 @@ class SlingshotGame(MicroGame):
                              (34, sy_base - 40), (27 - pull, sy_base - 30), 2)
             # Aiming arc (dotted)
             angle = -0.2 - self.aim * 1.2
-            force = 150 + self.power * 250
+            force = 250 + self.power * 350
             for i in range(1, 15):
                 ft = i * 0.06
                 ax = 30 + math.cos(angle) * force * ft
                 ay = (VIRT_H - 80) + math.sin(angle) * force * ft + 90 * ft * ft
                 if 0 < ax < VIRT_W and 0 < ay < VIRT_H:
-                    pygame.draw.rect(screen, WII_BORDER,
+                    pygame.draw.rect(screen, WHITE,
                                      (int(ax), int(ay), 2, 2))
             # Rock in sling
             pygame.draw.circle(screen, (120, 110, 100),
@@ -1665,7 +1691,7 @@ class DJScratchGame(MicroGame):
             p[1] -= random.uniform(0.5, 1.5)
             p[2] -= 1
             if p[2] > 0:
-                pygame.draw.rect(screen, p[3], (int(p[0]), int(p[1])), 2, 2)
+                pygame.draw.rect(screen, p[3], (int(p[0]), int(p[1]), 2, 2))
                 new_p.append(p)
         self.particles = new_p
 
@@ -3087,7 +3113,6 @@ ALL_GAMES = [
     CraneGame(),
     PinballGame(),
     FryEggGame(),
-    BarbershopGame(),
     SlingshotGame(),
     DJScratchGame(),
     SneezeGame(),
@@ -3836,11 +3861,15 @@ class GameEngine:
         self.all_leds_off()
         self.set_led("b", True)
 
+        back_rect = pygame.Rect(2, 2, 36, 16)
+        _prev_b2 = self.state.snapshot()["btn2_presses"]
+
         while True:
             snap = self.state.snapshot()
             game.reset(snap, speed_mult)
 
             self.show_instruction_screen(game)
+            _prev_b2 = self.state.snapshot()["btn2_presses"]
 
             if game.wave_based:
                 duration = game.base_duration
@@ -3848,6 +3877,7 @@ class GameEngine:
                 duration = max(3.0, game.base_duration * speed_mult)
             start_time = time.time()
             result = None
+            back_pressed = False
 
             while True:
                 if self.check_quit():
@@ -3863,6 +3893,19 @@ class GameEngine:
                     break
 
                 snap = self.state.snapshot()
+
+                # Check B2 press to exit practice
+                if snap["btn2_presses"] != _prev_b2:
+                    back_pressed = True
+                    break
+                # Check touch back button
+                for tx, ty in self.get_touches():
+                    if back_rect.collidepoint(tx, ty):
+                        back_pressed = True
+                        break
+                if back_pressed:
+                    break
+
                 check = game.update(snap, dt)
                 if check is not None:
                     result = check
@@ -3875,8 +3918,19 @@ class GameEngine:
                 draw_clean_text(self.screen, f"W:{wins}/{plays}",
                                 self.fonts["small"], WII_TEXT_LIGHT,
                                 (VIRT_W - 6, 6), center=False)
+                # Draw back button
+                draw_rounded_rect(self.screen, DARK_GREY,
+                                  (back_rect.x, back_rect.y,
+                                   back_rect.w, back_rect.h), 4)
+                draw_clean_text(self.screen, "< Back", self.fonts["small"],
+                                WHITE, (back_rect.x + 18, back_rect.y + 8),
+                                center=True)
                 self.flip()
                 self.clock.tick(FPS)
+
+            if back_pressed:
+                self.set_led("b", False)
+                return
 
             plays += 1
             if result:
@@ -3894,17 +3948,28 @@ class GameEngine:
                 anim_t = time.time() - anim_start
                 self.screen.fill(game.bg_color)
                 game.animate_result(self.screen, result, anim_t, self.fonts)
+                # Draw back button on result screen too
+                draw_rounded_rect(self.screen, DARK_GREY,
+                                  (back_rect.x, back_rect.y,
+                                   back_rect.w, back_rect.h), 4)
+                draw_clean_text(self.screen, "< Back", self.fonts["small"],
+                                WHITE, (back_rect.x + 18, back_rect.y + 8),
+                                center=True)
+                # Check touch/B2 during result animation
+                snap = self.state.snapshot()
+                if snap["btn2_presses"] != _prev_b2:
+                    self.set_led("b", False)
+                    return
+                _prev_b2 = snap["btn2_presses"]
+                for tx, ty in self.get_touches():
+                    if back_rect.collidepoint(tx, ty):
+                        self.set_led("b", False)
+                        return
                 self.flip()
                 self.clock.tick(FPS)
 
             # Brief pause then loop
             time.sleep(0.3)
-
-            # Check B2 to exit practice
-            snap = self.state.snapshot()
-            if snap["btn2"]:
-                self.set_led("b", False)
-                return
 
     def game_over_screen(self, score, is_high):
         """Wii-style game over panel."""
