@@ -1084,6 +1084,7 @@ class PinballGame(MicroGame):
                                    b["r"] + 3, 1)
 
         # Flippers — V shape at rest, swing up when pressed
+        # Both use same angle formula: 0.4 rads at rest, -0.2 when active
         l_angle = 0.4 - self.left_flip * 0.6
         r_angle = 0.4 - self.right_flip * 0.6
         # Left
