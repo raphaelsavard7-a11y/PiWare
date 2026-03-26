@@ -824,7 +824,7 @@ class SkeeBallGame(MicroGame):
 # ── 2. CRANE GAME ────────────────────────────────────────
 class CraneGame(MicroGame):
     name = "CRANE!"
-    hint = "POT1+POT2+B1"
+    hint = "POT1+B1"
     base_duration = 6.0
     game_type = "action"
 
@@ -1792,7 +1792,7 @@ class SneezeGame(MicroGame):
 class SwordFightGame(MicroGame):
     name = "DUEL!"
     hint = "B1=ATK B2=BLK"
-    base_duration = 30.0
+    base_duration = 12.0
     game_type = "action"
     wave_based = True
 
@@ -1808,8 +1808,8 @@ class SwordFightGame(MicroGame):
         self.hits = 0
         self.sparks = []
         self.enemy_hp = 3
-        self._b1_prev = 0
-        self._b2_prev = 0
+        self._b1_prev = snap["btn1_presses"] if snap else 0
+        self._b2_prev = snap["btn2_presses"] if snap else 0
 
     def update(self, snap, dt):
         b1_new = snap["btn1_presses"] != self._b1_prev
@@ -1821,8 +1821,11 @@ class SwordFightGame(MicroGame):
 
         if self.phase == "wait":
             # Wait phase - enemy is idle, player can attack
-            if b1_new:
-                # Player attacks during wait
+            if self.phase_timer >= self.telegraph_time:
+                self.phase = "telegraph"
+                self.phase_timer = 0
+                self.enemy_attack = True
+            elif b1_new:
                 self.hits += 1
                 self.sparks = [[VIRT_W // 2 + 20, VIRT_H // 2,
                                 random.randint(5, 10),
@@ -1833,12 +1836,7 @@ class SwordFightGame(MicroGame):
                 self.phase = "wait"
                 self.phase_timer = 0
                 self.telegraph_time = random.uniform(0.8, 2.0)
-            if self.phase_timer >= self.telegraph_time:
-                self.phase = "telegraph"
-                self.phase_timer = 0
-                self.enemy_attack = True
-            if b1_new and self.enemy_attack:
-                return False  # attacked during telegraph without blocking
+                self.enemy_attack = False
             return None
 
         if self.phase == "telegraph":
@@ -2576,7 +2574,7 @@ class WindsurfGame(MicroGame):
 class PickpocketGame(MicroGame):
     name = "STEAL!"
     hint = "BTN1"
-    base_duration = 30.0
+    base_duration = 10.0
     game_type = "action"
     wave_based = True
 
@@ -2676,7 +2674,7 @@ class PickpocketGame(MicroGame):
 class StackGame(MicroGame):
     name = "STACK!"
     hint = "BTN1"
-    base_duration = 8.0
+    base_duration = 10.0
     game_type = "action"
     wave_based = True
 
@@ -2686,12 +2684,12 @@ class StackGame(MicroGame):
         self.current_x = 0.0
         self.current_dir = 1
         self.speed = max(80, 120 / speed_mult)
-        self.target_stack = 6
+        self.target_stack = 5
         self.dropping = False
         self.drop_y = 0.0
         self.stack_top_y = float(VIRT_H - 50)
         self.block_h = 12
-        self._b1_prev = 0
+        self._b1_prev = snap["btn1_presses"] if snap else 0
 
     def update(self, snap, dt):
         b1_new = snap["btn1_presses"] != self._b1_prev
@@ -2810,7 +2808,7 @@ class SpaceInvaderGame(MicroGame):
         self.kills = 0
         self.target_kills = 5
         self.fire_cooldown = 0.0
-        self._b1_prev = 0
+        self._b1_prev = snap["btn1_presses"] if snap else 0
         # Create alien rows
         for row in range(2):
             for col in range(5):
@@ -3783,7 +3781,7 @@ class GameEngine:
             if game.wave_based:
                 duration = game.base_duration
             else:
-                duration = game.base_duration * speed_mult
+                duration = max(3.0, game.base_duration * speed_mult)
             start_time = time.time()
             result = None
 
@@ -3973,7 +3971,7 @@ class GameEngine:
             if game.wave_based:
                 duration = game.base_duration
             else:
-                duration = game.base_duration * speed_mult
+                duration = max(3.0, game.base_duration * speed_mult)
             start_time = time.time()
             result = None
 
