@@ -1,0 +1,102 @@
+=============================================
+  Hardware Reference — PCB Project
+=============================================
+
+BOARDS
+------
+  Lilygo T-SIM7670E (ESP32 + LTE)
+    - Treated as a standard ESP32 for compilation
+    - Serial port: /dev/ttyACM0 (USB)
+    - Baud rate: 115200
+    - Modem pins (reserved): 0, 4, 12, 13, 25, 26, 27
+    - SD card pins (reserved): 2, 13, 14, 15
+    - GPIOs 34-39 are INPUT-ONLY (ESP32 hardware limitation)
+    - GPIO 12 (BOARD_POWERON_PIN) must be set HIGH at the very start of
+      setup() to enable the DC-DC boost converter before the modem draws
+      current. Without this, battery power causes a brownout reset.
+
+  Raspberry Pi 5
+    - Runs Ubuntu headless (no desktop environment)
+    - Accessed exclusively via SSH
+    - Python 3.12
+
+DISPLAY
+-------
+  Raspberry Pi Touch Display 2
+    - Resolution: 720x1280 (portrait)
+    - Framebuffer: /dev/fb0
+    - No X11/Wayland — rendering via SDL2 kmsdrm driver
+    - Touch input via evdev (/dev/input, device name contains "touch")
+
+GPIO MAP (ESP32)
+----------------
+  Two wiring configurations exist depending on communication mode.
+
+  Serial mode (testscreen_serial/):
+    LEDs:
+      Red   — GPIO 21
+      Green — GPIO 22
+      Blue  — GPIO 23
+
+  MQTT mode (testscreen_mqtt/ and testscreen_mqtt_wifi/):
+    LEDs:
+      Red   — GPIO 21
+      Green — GPIO 22
+      Blue  — GPIO 23
+
+  Shared (all modes):
+    Potentiometers (analog input):
+      POT 1 — GPIO 39
+      POT 2 — GPIO 36
+
+    Buttons (input, active LOW, internal pull-up):
+      Button 1 — GPIO 19
+      Button 2 — GPIO 18
+
+    IMU (I2C):
+      MPU-6050 — SDA: GPIO 33, SCL: GPIO 32
+
+COMMUNICATION PROTOCOLS
+-----------------------
+  Serial mode (testscreen_serial/):
+    ESP32 → Pi:  S,btn1,btn2,pot1,pot2,ledR,ledG,ledB,acX,acY,acZ,gyX,gyY,gyZ\n  (every 20ms)
+    Pi → ESP32:  R | G | B                               (toggle LED)
+
+  MQTT mode -- LTE (testscreen_mqtt/):
+    ESP32 connects via LTE cellular modem
+    Broker: mqtt.wafie.net (WSS port 443 from ESP32, WSS port 443 from Pi)
+    Auth:   esp_user / (see auth.h and mqtt_config.py)
+    Topics (prefix = device_id):
+      ESP32 publishes:  {id}/testscreen/status          (JSON, on change only)
+      Pi publishes:     {id}/testscreen/led/red          "ON" / "OFF"
+                        {id}/testscreen/led/green        "ON" / "OFF"
+                        {id}/testscreen/led/blue         "ON" / "OFF"
+    Publish optimisation: status is only sent when a value changes.
+      Potentiometer deadband of +/-10 to avoid noise-triggered publishes.
+      A heartbeat is sent every 5 seconds if nothing changes.
+
+  MQTT mode -- WiFi (testscreen_mqtt_wifi/):
+    ESP32 connects via WiFi (WPA2-Enterprise at Climoilou)
+    Broker: mqtt.wafie.net (WSS port 443)
+    Auth:   esp_user / (see auth.h and mqtt_config.py)
+    Same topics and publish optimisation as LTE mode.
+
+DEPENDENCIES
+------------
+  ESP32 (arduino-cli):
+    All libraries pre-installed. Board FQBN: esp32:esp32:esp32
+
+  Raspberry Pi (apt / pip):
+    sudo apt install -y python3-pygame python3-serial python3-evdev
+    sudo pip3 install --break-system-packages paho-mqtt   (for MQTT mode)
+
+RUNNING
+-------
+  Serial mode:
+    cd testscreen_serial && ./run.sh
+
+  MQTT mode (LTE):
+    cd testscreen_mqtt && ./run.sh
+
+  MQTT mode (WiFi):
+    cd testscreen_mqtt_wifi && ./run.sh
