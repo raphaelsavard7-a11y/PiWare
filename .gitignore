@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.bak
 *.save
+
+# Credentials — keep local, never push
+**/auth.h
+**/mqtt_config.py
