@@ -3823,14 +3823,7 @@ class GameEngine:
             else:
                 self.led_lose()
 
-            anim_start = time.time()
-            anim_dur = game.RESULT_DURATION
-            while time.time() - anim_start < anim_dur:
-                if self.check_quit():
-                    self.set_led("b", False)
-                    return
-                anim_t = time.time() - anim***
-            anim_start = time.time()
+                       anim_start = time.time()
             anim_dur = game.RESULT_DURATION
             while time.time() - anim_start < anim_dur:
                 if self.check_quit():
