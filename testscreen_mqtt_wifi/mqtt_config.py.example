@@ -1,0 +1,8 @@
+## Copy this file to mqtt_config.py and fill in your credentials
+MQTT_CONFIG = {
+    "broker": "",
+    "port": 443,
+    "username": "",
+    "password": "",
+    "device_id": "",
+}

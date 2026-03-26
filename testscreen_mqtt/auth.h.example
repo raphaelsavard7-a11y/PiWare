@@ -1,0 +1,26 @@
+// auth.h - Configuration LTE/Cellulaire
+// Copy this file to auth.h and fill in your credentials
+#ifndef AUTH_H
+#define AUTH_H
+
+// ============================================================================
+// CONFIGURATION APN (Access Point Name) - CELLULAIRE
+// ============================================================================
+
+const char APN[] = "";
+const char APN_USER[] = "";
+const char APN_PASS[] = "";
+
+// ============================================================================
+// CONFIGURATION MQTT
+// ============================================================================
+
+const char MQTT_BROKER[] = "";
+const int  MQTT_PORT = 1883;
+const char MQTT_USER[] = "";
+const char MQTT_PASS[] = "";
+
+// Device ID - Identifiant unique de l'appareil
+const char MQTT_CLIENT_ID[] = "";
+
+#endif // AUTH_H
